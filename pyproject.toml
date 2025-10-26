@@ -1,0 +1,22 @@
+[project]
+name = "mcmodmanager"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "berrylium0078",email = "nekonetro@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["curseforge-api-wrapper (>=1.0.1,<2.0.0)", "modrinth-api-wrapper (>=1.0.0,<2.0.0)", "click (>=8.3.0,<9.0.0)", "rich (>=14.2.0,<15.0.0)", "toml (>=0.10.2,<0.11.0)"]
+
+[tool.pyright]
+# 显式指定 Python 解释器路径
+venvPath = "/home/netro/.cache/pypoetry/virtualenvs"
+venv = "mcmodmanager-Fcp67Lky-py3.13"
+
+[tool.poetry]
+packages = [{include = "mcmodmanager", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

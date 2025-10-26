@@ -1,0 +1,73 @@
+#!/bin/python3
+import asyncio
+import aiohttp
+import aiofiles
+import os
+import hashlib
+from dataclasses import dataclass
+from typing import Optional, List
+from rich.progress import Progress, BarColumn, TextColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn
+
+@dataclass
+class FileMetadata:
+    """Information about a file to download"""
+    url: str
+    dest: str
+    md5: Optional[str] = None
+    sha1: Optional[str] = None
+    sha512: Optional[str] = None
+    size: Optional[int] = None
+
+
+async def _download_one(session: aiohttp.ClientSession, file: FileMetadata, progress: Progress, task_id):
+    """Download a single file with progress update."""
+    os.makedirs(os.path.dirname(file.dest), exist_ok=True)
+
+    async with session.get(file.url) as resp:
+        resp.raise_for_status()
+        total = int(resp.headers.get("Content-Length", 0)) or file.size or 0
+        progress.update(task_id, total=total)
+
+        hasher_md5 = hashlib.md5() if file.md5 else None
+        hasher_sha1 = hashlib.sha1() if file.sha1 else None
+        hasher_sha512 = hashlib.sha512() if file.sha512 else None
+
+        async with aiofiles.open(file.dest, "wb") as f:
+            async for chunk in resp.content.iter_chunked(64 * 1024):
+                await f.write(chunk)
+                progress.update(task_id, advance=len(chunk))
+                if hasher_md5: hasher_md5.update(chunk)
+                if hasher_sha1: hasher_sha1.update(chunk)
+                if hasher_sha512: hasher_sha512.update(chunk)
+
+    # hash verification
+    if hasher_md5 and hasher_md5.hexdigest() != file.md5:
+        raise ValueError(f"MD5 mismatch for {file.dest}")
+    if hasher_sha1 and hasher_sha1.hexdigest() != file.sha1:
+        raise ValueError(f"SHA1 mismatch for {file.dest}")
+    if hasher_sha512 and hasher_sha512.hexdigest() != file.sha512:
+        raise ValueError(f"SHA512 mismatch for {file.dest}")
+
+
+async def download_files(files: List[FileMetadata], parallel: int = 5):
+    """Download multiple files concurrently with progress bars."""
+    connector = aiohttp.TCPConnector(limit=parallel)
+
+    progress = Progress(
+        TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
+        BarColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+        transient=False,
+    )
+
+    async with aiohttp.ClientSession(connector=connector) as session:
+        with progress:
+            tasks = []
+            for file in files:
+                task_id = progress.add_task("download", filename=os.path.basename(file.dest), start=False)
+                task = asyncio.create_task(_download_one(session, file, progress, task_id))
+                progress.start_task(task_id)
+                tasks.append(task)
+            await asyncio.gather(*tasks)

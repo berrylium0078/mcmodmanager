@@ -1,0 +1,22 @@
+# Maintainer info
+pkgname=mcmodmanager
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A stupid manager for minecraft mods, supports downloading latest version and dependency checks"
+arch=('any')
+url="https://github.com/berrylium0078/mcmodmanager"
+license=('MIT')
+depends=('python')
+makedepends=('python-poetry')
+source=("$pkgname-$pkgver.tar.gz::https://files.pythonhosted.org/packages/source/m/mypackage/mypackage-$pkgver.tar.gz")
+sha256sums=('SKIP')  # 最好用 sha256sum
+
+build() {
+    cd "$srcdir/$pkgname-$pkgver"
+    poetry install --no-dev
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+    python -m pip install . --root="$pkgdir" --no-deps --ignore-installed
+}
